@@ -6,8 +6,3 @@ openai==1.58.0
 firebase-admin==6.6.0
 python-multipart==0.0.20
 sentence-transformers
-pytesseract
-shapely
-opencv-python
-numpy
-Pillow

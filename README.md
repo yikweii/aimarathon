@@ -46,13 +46,6 @@ You also need:
 
 ---
 
-### Tesseract OCR EXE
-
-You also need:
-
-- install executable file from https://github.com/UB-Mannheim/tesseract/wiki
-- Setup and install on your device
-
 # Windows PowerShell Policy Fix (React.js)
 
 If you are using Windows, PowerShell may block npm scripts.
