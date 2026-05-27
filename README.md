@@ -169,11 +169,12 @@ After catalog import is completed, configure the Firestore vector index.
 Run the following command in your terminal:
 
 ```bash
-gcloud firestore vector indexes composite create \
+gcloud firestore indexes composite create \
 --project={your firestore project bucket} \
 --collection-group=catalog \
 --query-scope=COLLECTION \
---field-config=vector-config='{"dimension":"768","flat":"{}"}',field-path=embedding_vector
+--field-config=order=ASCENDING,field-path=category \
+--field-config=vector-config='{"dimension":"768","flat": "{}"}',field-path=embedding_vector
 ```
 
 Replace:
