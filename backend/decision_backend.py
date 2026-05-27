@@ -52,32 +52,41 @@ class DecisionMakingAgent:
 
         DISTANCE_THRESHOLD = 0.50
         retrieval_catalog = []
+        CATEGORY_LIMITS = {
+            "CCTV Camera": 20,
+            "Recorder": 5,
+            "Hard Drive": 5,
+            "Mounts & Enclosures": 5,
+            "Switches": 5,
+            "Cable": 5
+        }
 
-        vector_query = FirebaseService().find_nearest_catalog(requirements)
+        for category, limit in CATEGORY_LIMITS.items():
+            matched_docs = FirebaseService().find_nearest_catalog(requirements, category=category, limit=limit)
 
-        matched_docs = vector_query.stream()
+            for doc in matched_docs:
+                data = doc.to_dict()
+                distance = data.get("vector_distance", 1.0)
+                item_category = data.get("category", "Unknown")
 
-        for doc in matched_docs:
-            data = doc.to_dict()
-            distance = data.get("vector_distance", 1.0)
-            item_category = data.get("category", "Unknown")
+                if distance <= DISTANCE_THRESHOLD:
+                    doc_id_clean = str(doc.id).strip()
 
-            if distance <= DISTANCE_THRESHOLD:
-                doc_id_clean = str(doc.id).strip()
-
-                if not any(x['ID'] == doc_id_clean for x in retrieval_catalog):
-                    retrieval_catalog.append({
-                        "ID": doc_id_clean,
-                        "Product Name": data.get("product_name", "Unknown Component"),
-                        "Features": data.get("features", []),
-                        "Price": float(data.get("price", 0.0)),
-                        "Description": data.get("description", ""),
-                        "Category": item_category
-                    })
+                    if not any(x['ID'] == doc_id_clean for x in retrieval_catalog):
+                        retrieval_catalog.append({
+                            "ID": doc_id_clean,
+                            "Product Name": data.get("product_name", "Unknown Component"),
+                            "Features": data.get("features", []),
+                            "Price": float(data.get("price", 0.0)),
+                            "Description": data.get("description", ""),
+                            "Category": item_category
+                        })
 
         retrieval_catalog.sort(key=lambda x: x.get("vector_distance", 1.0))
 
         print(f"\n[Success] Cloud RAG compiled. Pooled {len(retrieval_catalog)} targeted components safely.")
+
+        print(f"\n📋 [RAG Retrieval Catalog Sample Output]: {retrieval_catalog}")
 
         context_string = "\n---\n".join(str(item) for item in retrieval_catalog)
         return {
@@ -100,7 +109,7 @@ class DecisionMakingAgent:
         5. CABLES EXPERT SELECTION RULE: If the user requirement for 'Cable' contains no features or specifications, automatically select an appropriate high-quality Cat6 UTP network cable box (e.g., PFM920I-6UN-C) to support PoE power and digital stream transmission.
 
         User Requirements: {json.dumps(requirements, indent=2)}
-        Retrieved Catalog (Valid Options Map): {retrieval_catalog_str}
+        Available Catalog (Valid Options Map): {retrieval_catalog_str}
         Previous Review Feedback (if any, please FIX these issues but NEVER delete required category items): {previous_feedback}
 
         MODE:
@@ -111,11 +120,13 @@ class DecisionMakingAgent:
         2. Stay strictly within the targeted budget limits.
         3. You MUST propose a complete system solution that includes components across ALL requested categories. NEVER omit an entire category of equipment. If a category is requested, it MUST be represented in the proposed plan with at least one product ID and quantity. For example, if 'Cameras' are requested, you cannot propose a plan that only includes NVRs and Switches without any camera IDs.
         4. You MUST make sure the quantities of each selected product perfectly match the user requirements. If the user requests 5 cameras, you MUST propose a quantity of 5 for the selected camera model. Do NOT under-propose or over-propose quantities.
+        5. The total number of proposed quantity of cameras MUST match the total quantity requested in the user requirements. For example, if the user requests a total of 10 items of cameras, the sum of the quantities of all cameras MUST equal 10. Do NOT propose a total quantity that is less than or greater than what is requested. You MUST use calculations code to calculate the total quantity, instead of relying on the LLM to do it correctly in its head.
         5. Every category requested in User Requirements MUST have at least one product ID mapped. Never drop a category entirely.
 
         STRICT FORMAT RULES:
         - Output ONLY valid JSON structure matching the blueprint schema model below.
         - A JSON structure MUST use "," as a separator and MUST NOT use any bullet points, lists, or markdown formatting.
+        - A JSON structure MUST use double quotes for all keys and string values. Single quotes are NOT allowed.
         - No explanation, no conversational text, no markdown labels or ticks.
 
         Return ONLY a JSON array structure following this exact format:

@@ -15,7 +15,7 @@ class LLM:
           "BAAI/bge-base-en-v1.5"
       )
 
-  def generate(self, prompt, max_tokens=1024, temperature=0.1, json_mode=False):
+  def generate(self, prompt, max_tokens=4096, temperature=0.1, json_mode=False):
     params = {
     "model": "Qwen/Qwen3-32B-TEE",
     "messages": [

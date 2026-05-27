@@ -19,6 +19,7 @@ export default function Chatbot() {
   const [summary, setSummary] = useState(null);
   const [progress, setProgress] = useState(0);
   const [decisionLoading, setDecisionLoading] = useState(false);
+  const [floorPlanLoading, setFloorPlanLoading] = useState(false);
   const summaryFetched = useRef(false);
   const conversationComplete = useRef(false); // stays true once stage hits complete
 
@@ -273,6 +274,8 @@ export default function Chatbot() {
   };
 
   const handleFloorPlanAnalysis = async (floorPlanData, knownRequirements) => {
+    setFloorPlanLoading(true);
+
     const reqs = knownRequirements || requirements;
     const backendURL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
     try {
@@ -285,7 +288,19 @@ export default function Chatbot() {
           ...(reqs?.camera_count       ? { camera_count: reqs.camera_count }             : {}),
         }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error('[Floor Plan Analysis] Server error:', res.status, err);
+        setMessages((prev) => [...prev, {
+          id: prev.length,
+          type: 'bot',
+          content: "I had trouble generating the floor plan analysis.",
+          timestamp: new Date(),
+        }]);
+        setFloorPlanLoading(false);
+        return;
+      }
+
       const data = await res.json();
       setMessages((prev) => [...prev, {
         id: prev.length,
@@ -295,6 +310,8 @@ export default function Chatbot() {
         cameras: data.cameras,
         timestamp: new Date(),
       }]);
+
+      setFloorPlanLoading(false);
     } catch (err) {
       console.error('[handleFloorPlanAnalysis] failed:', err);
     }
@@ -604,6 +621,40 @@ export default function Chatbot() {
             </div>
           );
         })}
+
+        {floorPlanLoading && (
+          <div style={{ width: '100%' }}>
+            <div style={{
+              border: '1px solid var(--color-border-tertiary)',
+              borderRadius: 'var(--border-radius-md)',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                padding: '0.6rem 1rem',
+                background: '#10B98120',
+                color: '#10B981',
+                fontSize: '13px', fontWeight: 600, letterSpacing: '0.02em',
+              }}>
+                Generating Floor Plan Analysis...
+              </div>
+              <div style={{
+                padding: '1rem',
+                background: 'var(--color-background-secondary)',
+                display: 'flex', gap: '6px', alignItems: 'center',
+                fontSize: '13px', color: 'var(--color-text-secondary)',
+              }}>
+                {[0, 0.2, 0.4].map((delay, i) => (
+                  <div key={i} style={{
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: 'var(--color-text-secondary)',
+                    animation: `pulse 1.4s infinite ${delay}s`,
+                  }} />
+                ))}
+                <span style={{ marginLeft: '4px' }}>Floor plan analysing...</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {decisionLoading && (
           <div style={{ width: '100%' }}>

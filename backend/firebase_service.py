@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 from google.cloud.firestore_v1.vector import Vector
+from google.cloud.firestore_v1 import FieldFilter
 
 from model import llm
 
@@ -275,15 +276,24 @@ class FirebaseService:
         except Exception as e:
             return {"status": "unhealthy", "firebase": f"error: {e}"}
         
-    def find_nearest_catalog(self, text):
-        collection_ref = self.db.collection("catalog")
+    def find_nearest_catalog(self, text, category=None, limit=5):
 
         line_vector = llm.embedding(text)
 
-        return collection_ref.find_nearest(
+        collection_ref = self.db.collection("catalog")
+
+        # build base query
+        query_ref = collection_ref
+
+        if category:
+            query_ref = collection_ref.where(
+                filter=FieldFilter("category", "==", category)
+        )
+
+        return query_ref.find_nearest(
             vector_field="embedding_vector",
             query_vector=Vector(line_vector),
             distance_measure=DistanceMeasure.COSINE,
-            limit=40,
+            limit=limit,
             distance_result_field="vector_distance"
-        )
+        ).stream()
