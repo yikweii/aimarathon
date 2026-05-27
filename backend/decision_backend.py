@@ -86,8 +86,6 @@ class DecisionMakingAgent:
 
         print(f"\n[Success] Cloud RAG compiled. Pooled {len(retrieval_catalog)} targeted components safely.")
 
-        print(f"\n📋 [RAG Retrieval Catalog Sample Output]: {retrieval_catalog}")
-
         context_string = "\n---\n".join(str(item) for item in retrieval_catalog)
         return {
             "retrieval_catalog_string": context_string,

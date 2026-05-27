@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 import math
@@ -421,6 +422,8 @@ def _call_vision(image_url: str, prompt: str) -> str:
 
 @app.post("/analyze-floor-plan", response_model=FloorPlanImageResponse)
 async def analyze_floor_plan(request: FloorPlanAnalysisRequest) -> FloorPlanImageResponse:
+    print("[/analyze-floor-plan] Received new floor plan analysis request.")
+
     # 1. Normalize Base64 input syntax variants safely
     b64_data = request.floor_plan_b64
     if "," in b64_data:
@@ -436,6 +439,7 @@ async def analyze_floor_plan(request: FloorPlanAnalysisRequest) -> FloorPlanImag
         raise HTTPException(status_code=400, detail="Invalid format matrix received on layout channel.")
 
     # 2. Extract OCR string components via local tesseract engines
+    print("[/analyze-floor-plan] Extracting textual layout markers via OCR...")
     boxes = extract_text_boxes(img)
     
     # 3. Detect system layouts 
@@ -503,6 +507,7 @@ async def analyze_floor_plan(request: FloorPlanAnalysisRequest) -> FloorPlanImag
         raise HTTPException(status_code=422, detail="No specific layout marker strings could be linked to physical rooms.")
 
     # 6. Extract spatial network medians
+    print(f"[*] Placed {len(placed)} cameras based on detected room tags. Calculating optimal recorder hub position...")
     raw_med_x, raw_med_y = calculate_geometric_median(camera_coordinates)
     recorder_snapped = nearest_point_with_min_distance(
         (raw_med_x, raw_med_y), 
@@ -522,6 +527,7 @@ async def analyze_floor_plan(request: FloorPlanAnalysisRequest) -> FloorPlanImag
     total_buffered_meters = total_base_meters * CABLE_BUFFER_MULTIPLIER
 
     # 8. Render visualization changes straight to data blocks
+    print(f"[*] Total cable length needed (with buffer): {total_buffered_meters:.2f} meters. Rendering layout visualization...")
     result_b64 = draw_results_to_bytes(img, placed, recorder_snapped, total_buffered_meters)
 
     return FloorPlanImageResponse(
