@@ -210,6 +210,7 @@ export default function Chatbot() {
       }]);
 
       await fetchDecision(response.summary)
+    }
   };
 
   const fetchDecision = async (summaryText) => {
