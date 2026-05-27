@@ -19,7 +19,6 @@ export default function Chatbot() {
   const [summary, setSummary] = useState(null);
   const [progress, setProgress] = useState(0);
   const [decisionLoading, setDecisionLoading] = useState(false);
-  const [floorPlanLoading, setFloorPlanLoading] = useState(false);
   const summaryFetched = useRef(false);
   const conversationComplete = useRef(false); // stays true once stage hits complete
 
@@ -210,13 +209,7 @@ export default function Chatbot() {
         timestamp: new Date()
       }]);
 
-      await Promise.all([
-        fetchDecision(response.summary),
-
-        response.optimization_summary && floorPlan
-          ? handleFloorPlanAnalysis(floorPlan, freshRequirements)
-          : Promise.resolve()
-      ]);
+      await fetchDecision(response.summary)
     }
   };
 
@@ -272,51 +265,6 @@ export default function Chatbot() {
     }
     setDecisionLoading(false);
   };
-
-  const handleFloorPlanAnalysis = async (floorPlanData, knownRequirements) => {
-    setFloorPlanLoading(true);
-
-    const reqs = knownRequirements || requirements;
-    const backendURL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
-    try {
-      const res = await fetch(`${backendURL}/analyze-floor-plan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          floor_plan_b64: floorPlanData.data,
-          ...(reqs?.camera_arrangement ? { camera_arrangement: reqs.camera_arrangement } : {}),
-          ...(reqs?.camera_count       ? { camera_count: reqs.camera_count }             : {}),
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error('[Floor Plan Analysis] Server error:', res.status, err);
-        setMessages((prev) => [...prev, {
-          id: prev.length,
-          type: 'bot',
-          content: "I had trouble generating the floor plan analysis.",
-          timestamp: new Date(),
-        }]);
-        setFloorPlanLoading(false);
-        return;
-      }
-
-      const data = await res.json();
-      setMessages((prev) => [...prev, {
-        id: prev.length,
-        type: 'floor-plan-analysis',
-        floorPlanSrc: floorPlanData.data,
-        rooms: data.rooms,
-        cameras: data.cameras,
-        timestamp: new Date(),
-      }]);
-
-      setFloorPlanLoading(false);
-    } catch (err) {
-      console.error('[handleFloorPlanAnalysis] failed:', err);
-    }
-  };
-
 
   const callBackendAPI = async (message, history, signal, floorPlanData) => {
     try {
@@ -493,69 +441,6 @@ export default function Chatbot() {
             );
           }
 
-          if (msg.type === 'floor-plan-analysis') {
-            return (
-              <div key={msg.id} style={{ width: '100%' }}>
-                <div style={{
-                  border: '1px solid var(--color-border-tertiary)',
-                  borderRadius: 'var(--border-radius-md)',
-                  overflow: 'hidden',
-                }}>
-                  <div style={{
-                    padding: '0.6rem 1rem',
-                    background: 'var(--color-background-info)',
-                    color: 'var(--color-text-info)',
-                    fontSize: '13px', fontWeight: 600, letterSpacing: '0.02em',
-                  }}>
-                    Camera Placement Map — {msg.cameras.length} camera{msg.cameras.length !== 1 ? 's' : ''} across {msg.rooms.length} zone{msg.rooms.length !== 1 ? 's' : ''}
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <img
-                      src={msg.floorPlanSrc}
-                      alt="Floor plan with camera markers"
-                      style={{ display: 'block', width: '100%' }}
-                    />
-                    {msg.rooms.map((room, i) => (
-                      <div key={i} style={{
-                        position: 'absolute',
-                        left: `${room.x * 100}%`,
-                        top: `${room.y * 100}%`,
-                        transform: 'translate(-50%, -50%)',
-                        fontSize: '9px', fontWeight: 600,
-                        color: 'white',
-                        background: 'rgba(0,0,0,0.65)',
-                        padding: '2px 5px',
-                        borderRadius: '3px',
-                        whiteSpace: 'nowrap',
-                        pointerEvents: 'none',
-                      }}>
-                        {room.name}
-                      </div>
-                    ))}
-                    {msg.cameras.map((cam) => (
-                      <div key={cam.id} title={`Cam ${cam.id} · ${cam.zone}: ${cam.purpose}`} style={{
-                        position: 'absolute',
-                        left: `${cam.x * 100}%`,
-                        top: `${cam.y * 100}%`,
-                        transform: 'translate(-50%, -50%)',
-                        width: '14px', height: '14px',
-                        borderRadius: '50%',
-                        background: '#EF4444',
-                        border: '2px solid white',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
-                        cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '8px', color: 'white', fontWeight: 700,
-                      }}>
-                        {cam.id}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            );
-          }
-
           if (msg.type === 'summary') {
             return (
               <div key={msg.id} style={{ width: '100%' }}>
@@ -621,40 +506,6 @@ export default function Chatbot() {
             </div>
           );
         })}
-
-        {floorPlanLoading && (
-          <div style={{ width: '100%' }}>
-            <div style={{
-              border: '1px solid var(--color-border-tertiary)',
-              borderRadius: 'var(--border-radius-md)',
-              overflow: 'hidden',
-            }}>
-              <div style={{
-                padding: '0.6rem 1rem',
-                background: '#10B98120',
-                color: '#10B981',
-                fontSize: '13px', fontWeight: 600, letterSpacing: '0.02em',
-              }}>
-                Generating Floor Plan Analysis...
-              </div>
-              <div style={{
-                padding: '1rem',
-                background: 'var(--color-background-secondary)',
-                display: 'flex', gap: '6px', alignItems: 'center',
-                fontSize: '13px', color: 'var(--color-text-secondary)',
-              }}>
-                {[0, 0.2, 0.4].map((delay, i) => (
-                  <div key={i} style={{
-                    width: '8px', height: '8px', borderRadius: '50%',
-                    background: 'var(--color-text-secondary)',
-                    animation: `pulse 1.4s infinite ${delay}s`,
-                  }} />
-                ))}
-                <span style={{ marginLeft: '4px' }}>Floor plan analysing...</span>
-              </div>
-            </div>
-          </div>
-        )}
 
         {decisionLoading && (
           <div style={{ width: '100%' }}>

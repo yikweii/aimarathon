@@ -7,7 +7,6 @@ import time
 from openai import OpenAI
 from general import (app, firebase)
 from config import api_key
-import optimisation_backend  # noqa: F401 — registers /generate-image route on the shared app
 
 client = OpenAI(base_url="https://llm.chutes.ai/v1", api_key=api_key)
 
